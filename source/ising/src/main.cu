@@ -36,18 +36,18 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < npd * npd; i++) {
 		if (rand() < (RAND_MAX) / 2)
 			*(G + i) = -1;
-		else 
+		else
 			*(G + i) = 1;
-	}		
+	}
 	gettimeofday(&endwtime, NULL);
 	double p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 	printf("DONE in %fsec!\n", p_time);
 
-	double weight_matrix[5][5] = {	{0.004, 0.016, 0.026, 0.016, 0.004},
+	double weight_matrix[5][5] = { {0.004, 0.016, 0.026, 0.016, 0.004},
 									{0.016, 0.071, 0.117, 0.071, 0.016},
 									{0.026, 0.117, 0.000, 0.117, 0.026},
 									{0.016, 0.071, 0.117, 0.071, 0.016},
-									{0.004, 0.016, 0.026, 0.016, 0.004}	};
+									{0.004, 0.016, 0.026, 0.016, 0.004} };
 
 	// Run Ising model evolution
 	printf("Running Ising Model Evolution. ");
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < nk; i++) {	// save data of each iteration to export them for animation
 			ising(G, &weight_matrix[0][0], 1, npd);
 			for (int j = 0; j < npd*npd; j++)	// copy data to export them later
-				*(G_out + i * npd*npd + j) = (char)*(G + j);			
+				*(G_out + i * npd*npd + j) = (char)*(G + j);
 		}
 		gettimeofday(&endwtime, NULL);
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 		printf("DONE in %fsec!\n", p_time);
 		free(G_out);
 	}
-	
+
 	printf("Exiting\n");
 	free(G);
 	return 0;
