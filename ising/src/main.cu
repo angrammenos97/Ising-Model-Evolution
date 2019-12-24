@@ -5,13 +5,13 @@
 #include "sys/time.h"
 #include "ising.h"
 
-#define DefNumPD 517	// Default Number of Points per Dimention
+#define DefNumPD 517	// Default Number of Points per Dimension
 #define DefNumI 10		// Default Number of Iterations
 #define DefExp 0		// Default Value to Export Data (0 = False)
 
 enum Data_Types { CHAR_TYPE, INT_TYPE, FLOAT_TYPE, DOUBLE_TYPE };
 
-int npd = DefNumPD;	// Number of Points per Dimention
+int npd = DefNumPD;	// Number of Points per Dimension
 int nk = DefNumI;	// Number of Iterations
 int expi = DefExp;	// Export Data
 
@@ -59,9 +59,11 @@ int main(int argc, char* argv[])
 		printf("DONE in %fsec!\n", p_time);
 	}
 	else {	// export data
-		char *G_out = (char*)malloc(npd * npd * nk * sizeof(char));
 		printf("Saving data of each iteration. This will take some time. ");
-		for (int i = 0; i < nk; i++) {	// save data of each iteration to export them for animation
+		char *G_out = (char*)malloc(npd * npd * (nk + 1) * sizeof(char));
+		for (int j = 0; j < npd*npd; j++)	// copy data to export them later
+			*(G_out + j) = (char)*(G + j);
+		for (int i = 1; i < (nk + 1); i++) {	// save data of each iteration to export them for animation
 			ising(G, &weight_matrix[0][0], 1, npd);
 			for (int j = 0; j < npd*npd; j++)	// copy data to export them later
 				*(G_out + i * npd*npd + j) = (char)*(G + j);
@@ -79,7 +81,7 @@ int main(int argc, char* argv[])
 	}
 
 	printf("Exiting\n");
-	free(G);
+	//free(G);
 	return 0;
 }
 
@@ -108,7 +110,7 @@ void help(int argc, char *argv[])
 		return;
 	}
 	printf("Flags to use:\n");
-	printf("-n [Number]\t:Number of points per dimention (default:%i)\n", DefNumPD);
+	printf("-n [Number]\t:Number of points per dimension (default:%i)\n", DefNumPD);
 	printf("-k [Iterations]\t:Number of iterations (default: %i)\n", DefNumI);
 	printf("-o [0|1]\t:Export each iteration to output.bin (default: %i)\n", DefExp);
 }
@@ -117,8 +119,9 @@ void export_data(char *G)
 {
 	FILE *f = fopen("output.bin", "wb");
 	fwrite(&npd, sizeof(int), 1, f);
-	fwrite(&nk, sizeof(int), 1, f);
-	fwrite(G, sizeof(char), npd*npd*nk, f);
+	int tmp_k = nk + 1;
+	fwrite(&tmp_k, sizeof(int), 1, f);
+	fwrite(G, sizeof(char), npd*npd*tmp_k, f);
 	fclose(f);
 }
 
