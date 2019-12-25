@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define WeightMatDim 5	// Weight Matrix Dimension
-#define FloatError 1e-6
+#define FloatError 0 //1e-12
 
 void update_state(int *G, double influence)
 {
@@ -38,10 +38,10 @@ void ising(int *G, double *w, int k, int n)
 					int r = (r_next + x + n) % n;	// wrap around top with bottom
 					for (int y = -2; y <= 2; y++) {	// for every weight of a row in weight matrix
 						int c = (c_next + y + n) % n;	// wrap around left with right
-						influence += *(G + r * n + c) * *(w + (x + 2) * WeightMatDim + (y + 2));
+						influence += *(G + r * n + c) * *(w + (x + 2) * WeightMatDim + (y + 2));	// +2 cause of the x and y offet
 					}// for x < WeightMatDim
 				}// for y < WeightMatDim
-				update_state((G + r_next * n + c_next), influence);
+				update_state((G_next + r_next * n + c_next), influence);
 			}// for c_next < n
 		}// for r_next < n
 		// Swap pointers
