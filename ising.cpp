@@ -7,12 +7,20 @@
 
 void update_state(int *G, double influence)
 {
-	if (influence > 1e-8)
+	if (influence > 1e-8)		// apply threshold for floating point error
 		*G = 1;
-	else if (influence < -1e-8)
+	else if (influence < -1e-8)	// apply threshold for floating point error
 		*G = -1;
 	else
 		return;
+}
+
+int same_matrix(void* A, void* B, int elemSize, int numElem)
+{
+	for (int i = 0; i < elemSize*numElem; i++)
+		if (*((char*)A + i) != *((char*)B + i))
+			return 0;
+	return 1;
 }
 
 void ising(int *G, double *w, int k, int n)
@@ -24,11 +32,11 @@ void ising(int *G, double *w, int k, int n)
 	for (int i = 0; i < k; i++) {	// for every k iteration
 		for (int r_next = 0; r_next < n; r_next++) {	// for every row of the n*n space			
 			for (int c_next = 0; c_next < n; c_next++) {	// for every point of the row of the n*n space
-				double influence = 0.0;	// weighted influence of neighbors
+				double influence = 0.0;			// weighted influence of neighbors
 				for (int x = -2; x <= 2; x++) {	// for every row of weight matrix
-					int r = (r_next - x + n) % n;
+					int r = (r_next + x + n) % n;	// wrap around top with bottom
 					for (int y = -2; y < 2; y++) {	// for every weight of a row in weight matrix
-						int c = (c_next - y + n) % n;
+						int c = (c_next + y + n) % n;	// wrap around left with right
 						influence += *(G + r * n + c) * *(w + (x + 2) * WeightMatDim + (y + 2));
 					}// for x < WeightMatDim
 				}// for y < WeightMatDim
@@ -39,6 +47,9 @@ void ising(int *G, double *w, int k, int n)
 		int *ptri = G;
 		G = G_next;
 		G_next = ptri;
+		// Exit if nothing changed
+		if (same_matrix(G, G_next, sizeof(int), n*n))	
+			return;
 	}// for i < k
 
 	// Free memory
