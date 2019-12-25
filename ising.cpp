@@ -4,12 +4,13 @@
 #include <string.h>
 
 #define WeightMatDim 5	// Weight Matrix Dimension
+#define FloatError 1e-6
 
 void update_state(int *G, double influence)
 {
-	if (influence > 1e-8)		// apply threshold for floating point error
+	if (influence > FloatError)			// apply threshold for floating point error
 		*G = 1;
-	else if (influence < -1e-8)	// apply threshold for floating point error
+	else if (influence < -FloatError)	// apply threshold for floating point error
 		*G = -1;
 	else
 		return;
@@ -35,7 +36,7 @@ void ising(int *G, double *w, int k, int n)
 				double influence = 0.0;			// weighted influence of neighbors
 				for (int x = -2; x <= 2; x++) {	// for every row of weight matrix
 					int r = (r_next + x + n) % n;	// wrap around top with bottom
-					for (int y = -2; y < 2; y++) {	// for every weight of a row in weight matrix
+					for (int y = -2; y <= 2; y++) {	// for every weight of a row in weight matrix
 						int c = (c_next + y + n) % n;	// wrap around left with right
 						influence += *(G + r * n + c) * *(w + (x + 2) * WeightMatDim + (y + 2));
 					}// for x < WeightMatDim
