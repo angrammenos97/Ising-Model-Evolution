@@ -54,9 +54,12 @@ void ising(int *G, double *w, int k, int n)
 			break;
 	}// for i < k
 
-	if ((i % 2) == 1)
-		memcpy(G_next, G, n*n * sizeof(int));
-
-	// Free memory
-	//free(G_next);
+	//check which pointer is being used and free the other to save memory
+	if ((i % 2) == 1) {
+		memcpy(G_next, G, n * n * sizeof(int));
+		free(G);
+		return;
+	}
+	
+	free(G_next);
 }
