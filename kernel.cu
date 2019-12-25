@@ -65,9 +65,9 @@ int main(int argc, char* argv[])
 	printf("Running Ising Model Evolution. ");
 	gettimeofday(&startwtime, NULL);
 	if (!expi) {
-		printMatrix(G, npd, npd, INT_TYPE, (char*)"G_old");
+		//printMatrix(G, npd, npd, INT_TYPE, (char*)"G_old");
 		ising(G, &weight_matrix[0][0], nk, npd);
-		printMatrix(G, npd, npd, INT_TYPE, (char*)"G_new");
+		//printMatrix(G, npd, npd, INT_TYPE, (char*)"G_new");
 		gettimeofday(&endwtime, NULL);
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
@@ -78,9 +78,9 @@ int main(int argc, char* argv[])
 		memcpy(G_out, G, npd*npd*sizeof(int));	// copy data to export them later
 		
 		for (int i = 1; i < (nk+1); i++) {	// save data of each iteration to export them for animation
-			printMatrix(G, npd, npd, INT_TYPE, (char*)"G_old");
+			//printMatrix(G, npd, npd, INT_TYPE, (char*)"G_old");
 			ising(G, &weight_matrix[0][0], 1, npd);
-			printMatrix(G, npd, npd, INT_TYPE, (char*)"G_new");
+			//printMatrix(G, npd, npd, INT_TYPE, (char*)"G_new");
 			memcpy((G_out + i*npd*npd), G, npd*npd*sizeof(int));	// copy data to export them later			
 		}
 		

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define WeightMatDim 5	// Weight Matrix Dimension
-#define FloatError 0 //1e-12
+#define FloatError 1e-6
 
 void update_state(int *G, double influence)
 {
@@ -30,7 +30,8 @@ void ising(int *G, double *w, int k, int n)
 	int *G_next = (int*)malloc(n*n * sizeof(int));	// second array to swap pointers
 	memcpy(G_next, G, n*n * sizeof(int));
 
-	for (int i = 0; i < k; i++) {	// for every k iteration
+	int i = 0;
+	for (i = 0; i < k; i++) {	// for every k iteration
 		for (int r_next = 0; r_next < n; r_next++) {	// for every row of the n*n space			
 			for (int c_next = 0; c_next < n; c_next++) {	// for every point of the row of the n*n space
 				double influence = 0.0;			// weighted influence of neighbors
@@ -50,8 +51,11 @@ void ising(int *G, double *w, int k, int n)
 		G_next = ptri;
 		// Exit if nothing changed
 		if (same_matrix(G, G_next, sizeof(int), n*n))	
-			return;
+			break;
 	}// for i < k
+
+	if ((i % 2) == 1)
+		memcpy(G_next, G, n*n * sizeof(int));
 
 	// Free memory
 	//free(G_next);

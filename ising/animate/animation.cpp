@@ -8,31 +8,39 @@
 
 using namespace cv;
 
-void create_output();
-void help(int argc, char *argv[]);
+char *input_file = NULL;
+int npd = 0;	// Number of Points per Dimension
+int nk = 0;	// Number of Iterations
 
-FILE *f = NULL;
+void help(int argc, char *argv[]);
+void import_data(char *G);
 
 int main(int argc, char *argv[])
 {
 	help(argc, argv);
 
-	int *bufi = (int*)malloc(sizeof(int));
-	fread(bufi, sizeof(int), 1, f);
-	int n = *bufi;
-	fread(bufi, sizeof(int), 1, f);
-	int k = *bufi;
-	free(bufi);
-	char *all_frames = (char*)malloc(n * n * k * sizeof(char));
-	fread(all_frames, sizeof(char), n*n*k, f);
-	fclose(f);
+	if (input_file == NULL) {
+		printf("Give input binary file!\n");
+		exit(1);
+	}
+	printf("Key mapping:\n");
+	printf("space\t: Play/Pause\n");
+	printf("p\t: Previous frame\n");
+	printf("esc|q\t: Exit\n");
+	printf("Other\t: Goes to next frame\n");
+	printf("Note: When press p the playback pauses.\n");
 
-	printf("n=%i k=%i\n", n, k);
-	Mat frame(n, n, CV_8UC1);
+	char *all_frames = (char*)malloc(npd*npd*nk * sizeof(char));
+	import_data(all_frames);
+
+
+	printf("n=%i k=%i\n", npd, nk);
+	Mat frame(npd, npd, CV_8UC1);
 	int millis_per_frame = mSPF;
-	for (int i = 0; i < k; i++) {
-		memcpy(frame.ptr(0), (all_frames + i * n*n), n*n);
-		printf("frame #%i\n", i);
+	int curr_frame = 0;
+	while (true) {
+		memcpy(frame.ptr(0), (all_frames + curr_frame * npd*npd), npd*npd);
+		printf("frame #%i\n", curr_frame);
 		imshow("Frame", frame);
 		int c = waitKey(millis_per_frame);
 		if (c == 32) { // space button
@@ -44,12 +52,17 @@ int main(int argc, char *argv[])
 		}
 		else if (c == 112) { // p button
 			millis_per_frame = -1;			// pause
-			i -= 2;
-			if (i < 0)
-				i = -1;						// go back a frame
+			if (curr_frame > 0)
+				curr_frame -= 1;	// go back a frame
 		}
 		else if (c == 113 || c == 27) // q or esc button
 			break;							// exit
+		else if (curr_frame < nk - 1)	// go to next frame
+			curr_frame++;
+		else {
+			millis_per_frame = -1;
+			printf("End\n");
+		}
 	}
 
 
@@ -63,40 +76,41 @@ int main(int argc, char *argv[])
 void help(int argc, char *argv[])
 {
 	if (argc > 1) {
-		if (*argv[1] == '-' && *(argv[1] + 1) == 'r') {
-			create_output();
-			exit(0);
+		for (int i = 1; i < argc; i += 2) {
+			if (*argv[i] == '-') {
+				if (*(argv[i] + 1) == 'f')
+					input_file = argv[i + 1];
+				else if (*(argv[i] + 1) == 'n')
+					npd = atoi(argv[i + 1]);
+				else if (*(argv[i] + 1) == 'k')
+					nk = atoi(argv[i + 1]);
+				else {
+					help(1, argv);
+					return;
+				}
+			}
+			else {
+				help(1, argv);
+				return;
+			}
 		}
-		else
-			f = fopen(argv[1], "rb");
+		return;
 	}
-	else {
-		printf("No input file! You can create a random one with flag -r.\n");
-		exit(-1);
-	}
-	printf("Key mapping:\n");
-	printf("space\t: Play/Pause\n");
-	printf("p\t: Previous frame\n");
-	printf("esc|q\t: Exit\n");
-	printf("Other\t: Goes to next frame\n");
-	printf("Note: When press p the playback pauses.\n");
+	printf("Flags to use:\n");
+	printf("-f [File]\t:Input file of points\n");
+	printf("-n [Number]\t:Number of points per dimension \n");
+	printf("-k [Iterations]\t:Number of iterations \n");
 }
 
-void create_output()
+void import_data(char *G)
 {
-	printf("Creating random frames in random.bin.\n");
-	srand((unsigned int)time(NULL));
-	FILE *f = fopen("random.bin", "wb");
-	int n = 512;
-	int k = 20;
-	char minus_one = -1;
-	char plus_one = 1;
-	fwrite(&n, sizeof(int), 1, f);
-	fwrite(&k, sizeof(int), 1, f);
-	for (int i = 0; i < n*n*k; i++) {
-		if (rand() < RAND_MAX / 2)
-			fwrite(&minus_one, sizeof(char), 1, f);
-		else
-			fwrite(&plus_one, sizeof(char), 1, f);
+	printf("Importing data from %s. ", input_file);
+	FILE *f = fopen(input_file, "rb");
+	int *bufi = (int*)malloc(sizeof(int));
+	for (int i = 0; i < npd*npd*nk; i++) {
+		fread(bufi, sizeof(int), 1, f);
+		*(G + i) = (char)*bufi;
 	}
+	fclose(f);
+	free(bufi);
 }
