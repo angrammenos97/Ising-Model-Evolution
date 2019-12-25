@@ -59,4 +59,5 @@ void ising(int *G, double *w, int k, int n)
 
 	// Free memory
 	//free(G_next);
+	//o anastasis gamietai piklas
 }
