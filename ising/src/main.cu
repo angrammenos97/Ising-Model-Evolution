@@ -8,40 +8,54 @@
 #define DefNumPD 517	// Default Number of Points per Dimension
 #define DefNumI 10		// Default Number of Iterations
 #define DefExp 0		// Default Value to Export Data (0 = False)
+#define DefLastF 0		// Default Export Only Last Frame (0 = False)
 
 enum Data_Types { CHAR_TYPE, INT_TYPE, FLOAT_TYPE, DOUBLE_TYPE };
 
+char *input_file = NULL;
 int npd = DefNumPD;	// Number of Points per Dimension
 int nk = DefNumI;	// Number of Iterations
 int expi = DefExp;	// Export Data
+int last_frame = DefLastF;
 
 struct timeval startwtime, endwtime;
 
 void help(int argc, char *argv[]);
-void export_data(char *G);
+void export_data(int *G, int elemNum);
+void import_data(int *G);
 void printMatrix(void *m, int r, int c, int elem_type, char *name);
 
 
 int main(int argc, char* argv[])
 {
 	help(argc, argv);
-	printf("Running with values n=%i, k=%i, o=%i\n", npd, nk, expi);
+	printf("Running with values n=%i, k=%i, o=%i, l=%i\n", npd, nk, expi, last_frame);
 
 	srand((unsigned int)time(NULL));
+	double p_time;
 
-	// Generate random point set
-	printf("Generating random data set. ");
-	gettimeofday(&startwtime, NULL);
+	// Generate random/Import point set
 	int *G = (int *)malloc(npd * npd * sizeof(int));
-	for (int i = 0; i < npd * npd; i++) {
-		if (rand() < (RAND_MAX) / 2)
-			*(G + i) = -1;
-		else
-			*(G + i) = 1;
+	if (input_file == NULL) {
+		printf("Generating random data set. ");
+		gettimeofday(&startwtime, NULL);
+
+		for (int i = 0; i < npd * npd; i++) {
+			if (rand() < (RAND_MAX) / 2)
+				*(G + i) = -1;
+			else
+				*(G + i) = 1;
+		}
+		gettimeofday(&endwtime, NULL);
+		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
+		printf("DONE in %fsec!\n", p_time);
 	}
-	gettimeofday(&endwtime, NULL);
-	double p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
-	printf("DONE in %fsec!\n", p_time);
+	else {
+		gettimeofday(&startwtime, NULL);
+		import_data(G);
+		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
+		printf("DONE in %fsec!\n", p_time);
+	}
 
 	double weight_matrix[5][5] = { {0.004, 0.016, 0.026, 0.016, 0.004},
 									{0.016, 0.071, 0.117, 0.071, 0.016},
@@ -52,32 +66,32 @@ int main(int argc, char* argv[])
 	// Run Ising model evolution
 	printf("Running Ising Model Evolution. ");
 	gettimeofday(&startwtime, NULL);
-	if (!expi) {
+	if (!expi && !last_frame) {
 		ising(G, &weight_matrix[0][0], nk, npd);
 		gettimeofday(&endwtime, NULL);
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 	}
-	else {	// export data
+	else if (expi) {	// export data
 		printf("Saving data of each iteration. This will take some time. ");
-		char *G_out = (char*)malloc(npd * npd * (nk + 1) * sizeof(char));
-		for (int j = 0; j < npd*npd; j++)	// copy data to export them later
-			*(G_out + j) = (char)*(G + j);
+		int *G_out = (int*)malloc(npd * npd * (nk + 1) * sizeof(int));
+		memcpy(G_out, G, npd*npd * sizeof(int));	// copy data to export them later		
 		for (int i = 1; i < (nk + 1); i++) {	// save data of each iteration to export them for animation
 			ising(G, &weight_matrix[0][0], 1, npd);
-			for (int j = 0; j < npd*npd; j++)	// copy data to export them later
-				*(G_out + i * npd*npd + j) = (char)*(G + j);
+			memcpy((G_out + i * npd*npd), G, npd*npd * sizeof(int));	// copy data to export them later			
 		}
-		gettimeofday(&endwtime, NULL);
-		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
-		printf("DONE in %fsec!\n", p_time);
 		//  Export data to output.bin
-		printf("Exporting data to output.bin. ");
-		gettimeofday(&startwtime, NULL);
-		export_data(G_out);
+		export_data(G_out, npd*npd*(nk + 1));
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 		free(G_out);
+	}
+	else {
+		ising(G, &weight_matrix[0][0], nk, npd);
+		printf("Saving last iteration. ");
+		export_data(G, npd*npd);
+		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
+		printf("DONE in %fsec!\n", p_time);
 	}
 
 	printf("Exiting\n");
@@ -90,16 +104,16 @@ void help(int argc, char *argv[])
 	if (argc > 1) {
 		for (int i = 1; i < argc; i += 2) {
 			if (*argv[i] == '-') {
-				if (*(argv[i] + 1) == 'n')
+				if (*(argv[i] + 1) == 'f')
+					input_file = argv[i + 1];
+				else if (*(argv[i] + 1) == 'n')
 					npd = atoi(argv[i + 1]);
 				else if (*(argv[i] + 1) == 'k')
 					nk = atoi(argv[i + 1]);
-				else if (*(argv[i] + 1) == 'o') {
+				else if (*(argv[i] + 1) == 'o')
 					expi = atoi(argv[i + 1]);
-				}
-				else {
-					help(1, argv);
-					return;
+				else if (*(argv[i] + 1) == 'l') {
+					last_frame = atoi(argv[i + 1]);
 				}
 			}
 			else {
@@ -110,18 +124,31 @@ void help(int argc, char *argv[])
 		return;
 	}
 	printf("Flags to use:\n");
+	printf("-f [File]\t:Input file of points\n");
 	printf("-n [Number]\t:Number of points per dimension (default:%i)\n", DefNumPD);
 	printf("-k [Iterations]\t:Number of iterations (default: %i)\n", DefNumI);
-	printf("-o [0|1]\t:Export each iteration to output.bin (default: %i)\n", DefExp);
+	printf("-o [0|1]\t:Export each iteration to output*.bin (default: %i)\n", DefExp);
+	printf("-l [0|1]\t:Export last iteration to output*.bin (default: %i)\n", DefLastF);
+
 }
 
-void export_data(char *G)
+void export_data(int *G, int totalSize)
 {
-	FILE *f = fopen("output.bin", "wb");
-	fwrite(&npd, sizeof(int), 1, f);
 	int tmp_k = nk + 1;
-	fwrite(&tmp_k, sizeof(int), 1, f);
-	fwrite(G, sizeof(char), npd*npd*tmp_k, f);
+	char *out_file_name = (char*)calloc(100, sizeof(char));
+	sprintf(out_file_name, "output-%i-%i.bin", npd, tmp_k);
+	printf("Exporting data to %s. ", out_file_name);
+	FILE *f = fopen(out_file_name, "wb");
+	fwrite(G, sizeof(int), totalSize, f);
+	fclose(f);
+	free(out_file_name);
+}
+
+void import_data(int *G)
+{
+	printf("Importing data from %s. ", input_file);
+	FILE *f = fopen(input_file, "rb");
+	fread(G, sizeof(int), npd*npd, f);
 	fclose(f);
 }
 
