@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6
@@ -11,7 +14,7 @@
 __device__ int state_d; // Device parameter to hold if iterations should proceed
 int state; // corresponding host parameter
 
-__global__ int same_matrix(void* A, void* B, int elemSize, int numElem)
+__global__ void same_matrix(void* A, void* B, int elemSize, int numElem)
 {
 	state_d = 1;
 
@@ -34,7 +37,7 @@ __global__ void calculateFrame(int* G_d, int* GNext_d, double* w_d, int n)
 
 	/*------------------------------------------*/
 
-	if (x < MatrixDim) { // Check whether thread x coordinate is out of bounds
+	if (x < n) { // Check whether thread x coordinate is out of bounds
 		for (int j = 0; j < TileSize && y < n; j += NumberOfRows) { // for every block chunk of tile in the y axis 
 
 			double influence = 0.0;			// weighted influence of neighbors
@@ -52,7 +55,7 @@ __global__ void calculateFrame(int* G_d, int* GNext_d, double* w_d, int n)
 
 			if (influence > FloatError)			// apply threshold for floating point error
 				GNext_d[y * n + x] = 1;
-			else (influence < -FloatError)	// apply threshold for floating point error
+			else                             	// apply threshold for floating point error
 				GNext_d[y * n + x] = -1;
 
 			y += NumberOfRows; // Update y coordinate as we move down the tile
@@ -65,7 +68,7 @@ void ising(int* G, double* w, int k, int n)
 {
 	/*Declare and initialize memory to use on device*/
 
-	int* G_d, GNext_d; double* w_d; // Pointers to use for matrix store on device
+	int* G_d, *GNext_d; double* w_d; // Pointers to use for matrix store on device
 
 	cudaMalloc((void**)&G_d, n * n * sizeof(int));
 	cudaMalloc((void**)&GNext_d, n * n * sizeof(int));
@@ -82,17 +85,17 @@ void ising(int* G, double* w, int k, int n)
 
 	/*--------------------------------------------------------------------------------*/
 
-	for (int i = 0; i < k; ++i) { // For every iteration
+	for(int i = 0; i < k; ++i) { // For every iteration
 
-		calculateFrame << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n);
-		sameMatrix << < 1, 1 >> > ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+		calculateFrame<<< dimGrid, dimBlock >>>(G_d, GNext_d, w_d, n);
+		same_matrix<<< 1, 1 >>>((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
 
 		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 
 		// Swap pointers
 		int* ptri = G_d;
 		G_d = GNext_d;
-		G_next = ptri;
+		GNext_d = ptri;
 
 		// Exit if nothing changed
 		if (state) {
