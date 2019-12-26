@@ -5,61 +5,104 @@
 
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6
+#define TileSize 32 // Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
+#define NumberOfRows 8 // Rows of each block of threads - each block is of size NumberOfRows x TileSize
 
-void update_state(int *G, double influence)
+__device__ int state_d; // Device parameter to hold if iterations should proceed
+int state; // corresponding host parameter
+
+__global__ int same_matrix(void* A, void* B, int elemSize, int numElem)
 {
-	if (influence > FloatError)			// apply threshold for floating point error
-		*G = 1;
-	else if (influence < -FloatError)	// apply threshold for floating point error
-		*G = -1;
-	else
-		return;
-}
+	state_d = 1;
 
-int same_matrix(void* A, void* B, int elemSize, int numElem)
-{
-	for (int i = 0; i < elemSize*numElem; i++)
-		if (*((char*)A + i) != *((char*)B + i))
-			return 0;
-	return 1;
-}
+	for (int i = 0; i < elemSize * numElem; i++)
 
-void ising(int *G, double *w, int k, int n)
-{
-	// Initialize memory
-	int *G_next = (int*)malloc(n*n * sizeof(int));	// second array to swap pointers
-	memcpy(G_next, G, n*n * sizeof(int));
-
-	int i = 0;
-	for (i = 0; i < k; i++) {	// for every k iteration
-		for (int r_next = 0; r_next < n; r_next++) {	// for every row of the n*n space			
-			for (int c_next = 0; c_next < n; c_next++) {	// for every point of the row of the n*n space
-				double influence = 0.0;			// weighted influence of neighbors
-				for (int x = -2; x <= 2; x++) {	// for every row of weight matrix
-					int r = (r_next + x + n) % n;	// wrap around top with bottom
-					for (int y = -2; y <= 2; y++) {	// for every weight of a row in weight matrix
-						int c = (c_next + y + n) % n;	// wrap around left with right
-						influence += *(G + r * n + c) * *(w + (x + 2) * WeightMatDim + (y + 2));	// +2 cause of the x and y offet
-					}// for x < WeightMatDim
-				}// for y < WeightMatDim
-				update_state((G_next + r_next * n + c_next), influence);
-			}// for c_next < n
-		}// for r_next < n
-		// Swap pointers
-		int *ptri = G;
-		G = G_next;
-		G_next = ptri;
-		// Exit if nothing changed
-		if (same_matrix(G, G_next, sizeof(int), n*n))	
+		if (*((int*)A + i) != *((int*)B + i)) {
+			state_d = 0;
 			break;
-	}// for i < k
+		}
+}
 
-	//check which pointer is being used and free the other to save memory
-	if ((i % 2) == 1) {
-		memcpy(G_next, G, n * n * sizeof(int));
-		free(G);
-		return;
+__global__ void calculateFrame(int* G_d, int* GNext_d, double* w_d, int n)
+{
+
+	/* Initialize thread coordinates*/
+
+	int x = blockIdx.x * TileSize + threadIdx.x;
+	int y = blockIdx.y * TileSize + threadIdx.y;
+	int width = gridDim.x * TileSize;
+
+	/*------------------------------------------*/
+
+	if (x < MatrixDim) { // Check whether thread x coordinate is out of bounds
+		for (int j = 0; j < TileSize && y < n; j += NumberOfRows) { // for every block chunk of tile in the y axis 
+
+			double influence = 0.0;			// weighted influence of neighbors
+
+			for (int i = -2; i <= 2; i++) {	// for every row of weight matrix
+				int r = (y + i + n) % n;	// wrap around top with bottom
+				for (int t = -2; t <= 2; t++) {	// for every weight of a row in weight matrix
+					int c = (x + t + n) % n;	// wrap around left with right
+					influence += *(G_d + r * n + c) * *(w_d + (i + 2) * WeightMatDim + (t + 2));	// +2 cause of the x and y offet
+				}// for t < WeightMatDim
+			}// for i < WeightMatDim
+
+
+			 /*Update state for current point*/
+
+			if (influence > FloatError)			// apply threshold for floating point error
+				GNext_d[y * n + x] = 1;
+			else (influence < -FloatError)	// apply threshold for floating point error
+				GNext_d[y * n + x] = -1;
+
+			y += NumberOfRows; // Update y coordinate as we move down the tile
+
+		}// for every j < TileSize && y within G matrix's bounds
 	}
-	
-	free(G_next);
+}
+
+void ising(int* G, double* w, int k, int n)
+{
+	/*Declare and initialize memory to use on device*/
+
+	int* G_d, GNext_d; double* w_d; // Pointers to use for matrix store on device
+
+	cudaMalloc((void**)&G_d, n * n * sizeof(int));
+	cudaMalloc((void**)&GNext_d, n * n * sizeof(int));
+	cudaMalloc((void**)&w_d, WeightMatDim * WeightMatDim * sizeof(double));
+
+	cudaMemcpy(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(w_d, w, WeightMatDim * WeightMatDim * sizeof(double), cudaMemcpyHostToDevice);
+
+	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
+
+	dim3 dimBlock(NumberOfRows, TileSize);
+	dim3 dimGrid((n + dimBlock.x - 1) / dimBlock.x, (n + dimBlock.y - 1) / dimBlock.y);
+
+	/*--------------------------------------------------------------------------------*/
+
+	for (int i = 0; i < k; ++i) { // For every iteration
+
+		calculateFrame << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n);
+		sameMatrix << < 1, 1 >> > ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+
+		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
+
+		// Swap pointers
+		int* ptri = G_d;
+		G_d = GNext_d;
+		G_next = ptri;
+
+		// Exit if nothing changed
+		if (state) {
+			cudaFree(GNext_d);
+			cudaFree(w_d);
+			break;
+		}
+	}  // for every i < k
+
+	// copy data from device and cleanup
+	cudaMemcpy(G, G_d, n * n * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaFree(G_d);
 }
