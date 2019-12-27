@@ -1,7 +1,4 @@
-#include "ising.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+//////////////// Ising Code Here ////////////////
 
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6
@@ -63,3 +60,4 @@ void ising(int *G, double *w, int k, int n)
 
 	free(G_next);
 }
+/////////////////////////////////////////////////

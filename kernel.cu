@@ -179,7 +179,7 @@ void printMatrix(void *m, int r, int c, int elem_type, char *name)
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6	// Float error
 #define TileSize 32		// Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
-#define NumberOfRows 16 // Rows of each block of threads - each block is of size NumberOfRows x TileSize
+#define NumberOfRows 32 // Rows of each block of threads - each block is of size NumberOfRows x TileSize
 
 __device__ int state_d; // device parameter to hold if iterations should proceed
 int state;				// corresponding host parameter
