@@ -215,7 +215,7 @@ __global__ void calculateFrame(int* G_d, int* GNext_d, double* w_d, int n)
 			 /*Update state for current point*/
 			if (influence > FloatError)			// apply threshold for floating point error
 				GNext_d[y * n + x] = 1;
-			else                             	// apply threshold for floating point error
+			else if (influence < -FloatError)                             	// apply threshold for floating point error
 				GNext_d[y * n + x] = -1;
 
 			y += NumberOfRows; // Update y coordinate as we move down the tile
