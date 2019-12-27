@@ -237,7 +237,7 @@ void ising(int* G, double* w, int k, int n)
 	cudaMemcpy(w_d, w, WeightMatDim * WeightMatDim * sizeof(double), cudaMemcpyHostToDevice);
 
 	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
-	dim3 dimBlock(NumberOfRows, TileSize);
+	dim3 dimBlock(TileSize, NumberOfRows);
 	dim3 dimGrid((n + dimBlock.x - 1) / dimBlock.x, (n + dimBlock.y - 1) / dimBlock.y);
 
 	/*--------------------------------------------------------------------------------*/
