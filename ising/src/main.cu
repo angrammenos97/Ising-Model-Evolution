@@ -3,7 +3,6 @@
 #include <string.h>
 #include <time.h>
 #include "sys/time.h"
-#include "ising.h"
 
 #define DefNumPD 517	// Default Number of Points per Dimension
 #define DefNumI 10		// Default Number of Iterations
@@ -20,6 +19,7 @@ int last_frame = DefLastF;
 
 struct timeval startwtime, endwtime;
 
+void ising(int* G, double* w, int k, int n);
 void help(int argc, char *argv[]);
 void export_data(int *G, int elemNum);
 void import_data(int *G);
@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 		printf("DONE in %fsec!\n", p_time);
 	}
 	else if (expi) {	// export data
-		printf("Saving data of each iteration. This will take some time. ");
+		printf("Saving data of each iteration. ");
 		int *G_out = (int*)malloc(npd * npd * (nk + 1) * sizeof(int));
 		memcpy(G_out, G, npd*npd * sizeof(int));	// copy data to export them later		
 		for (int i = 1; i < (nk + 1); i++) {	// save data of each iteration to export them for animation
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
 	}
 
 	printf("Exiting\n");
-	//free(G);
+	free(G);
 	return 0;
 }
 
