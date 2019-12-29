@@ -39,11 +39,13 @@ __global__ void calculateFrame(int* G_d, int* GNext_d, double* w_d, int n)
 				}// for t < WeightMatDim
 			}// for i < WeightMatDim
 
-			 /*Update state for current point*/
+			  /*Update state for current point*/
 			if (influence > FloatError)			// apply threshold for floating point error
-				GNext_d[y * n + x] = 1;
-			else if (influence < -FloatError)                             	// apply threshold for floating point error
-				GNext_d[y * n + x] = -1;
+				*(GNext_d + y * n + x) = 1;
+			else if (influence < -FloatError)	// apply threshold for floating point error
+				*(GNext_d + y * n + x) = -1;
+			else								// stay the same
+				*(GNext_d + y * n + x) = *(G_d + y * n + x);
 
 			y += NumberOfRows; // Update y coordinate as we move down the tile
 		}// for every j < TileSize && y within G matrix's bounds

@@ -3,16 +3,6 @@
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6
 
-void update_state(int *G, double influence)
-{
-	if (influence > FloatError)			// apply threshold for floating point error
-		*G = 1;
-	else if (influence < -FloatError)	// apply threshold for floating point error
-		*G = -1;
-	else
-		return;
-}
-
 int same_matrix(void* A, void* B, int elemSize, int numElem)
 {
 	for (int i = 0; i < elemSize*numElem; i++)
@@ -39,7 +29,13 @@ void ising(int *G, double *w, int k, int n)
 						influence += *(G + r * n + c) * *(w + (x + 2) * WeightMatDim + (y + 2));	// +2 cause of the x and y offet
 					}// for x < WeightMatDim
 				}// for y < WeightMatDim
-				update_state((G_next + r_next * n + c_next), influence);
+				if (influence > FloatError)			// apply threshold for floating point error
+					*(G_next + r_next * n + c_next) = 1;
+				else if (influence < -FloatError)	// apply threshold for floating point error
+					*(G_next + r_next * n + c_next) = -1;
+				else								// stay the same
+					*(G_next + r_next * n + c_next) = *(G + r_next * n + c_next);
+
 			}// for c_next < n
 		}// for r_next < n
 		// Swap pointers
