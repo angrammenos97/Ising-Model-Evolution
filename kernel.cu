@@ -179,7 +179,9 @@ void printMatrix(void *m, int r, int c, int elem_type, char *name)
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6	// Float error
 #define TileSize 32		// Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
-#define NumberOfRows 8	// Rows of each block of threads - each block is of size NumberOfRows x TileSize
+#define NumberOfRows 8	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
+#define RowsHelping (NumberOfRows + 4)	// Rows of global memory to be loaded into shared (for the exercise NumberOfRows + 4)
+#define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
 __device__ int state_d; // device parameter to hold if iterations should proceed
 int state;				// corresponding host parameter
@@ -194,35 +196,66 @@ __global__ void same_matrix(void* A, void* B, int elemSize, int numElem)
 		}
 }
 
-__global__ void calculateFrame(int* G_d, int* GNext_d, double* w_d, int n)
+__global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 {
-	/* Initialize thread coordinates*/
+	__shared__ double w_s[25]; // Shared matrix to hold weight table and accelerate access
+	__shared__ int g_s[RowsHelping][ColumnsHelping]; // Shared matrix to hold moments needed for the current iteration
+
+	// Copy w_d matrix from global to shared memory with optimal access of the former
+	// as far as warps are concerned - indexing used is based only on block dims
+
+	if (threadIdx.x < 24) // Use only 25 initial threads of the first warp
+		w_s[threadIdx.x] = w_d[threadIdx.x];
+
+	/* Initialize thread coordinates to be used for global memory access*/
 	int x = blockIdx.x * TileSize + threadIdx.x;
 	int y = blockIdx.y * TileSize + threadIdx.y;
 
-	/*------------------------------------------*/
-	if (x < n) { // Check whether thread x coordinate is out of bounds
-		for (int j = 0; j < TileSize && y < n; j += NumberOfRows) { // for every block chunk of tile in the y axis
-			double influence = 0.0;			// weighted influence of neighbors
-			for (int i = -2; i <= 2; i++) {	// for every row of weight matrix
-				int r = (y + i + n) % n;	// wrap around top with bottom
-				for (int t = -2; t <= 2; t++) {	// for every weight of a row in weight matrix
-					int c = (x + t + n) % n;	// wrap around left with right
-					influence += *(G_d + r * n + c) * *(w_d + (i + 2) * WeightMatDim + (t + 2));	// +2 cause of the i and t offset
-				}// for t < WeightMatDim
-			}// for i < WeightMatDim
+	// Do as many time needed to cover the whole area assigned to the block
+	// Copy block elements for current iteration from global memory to shared in a warp
+	// oriented manner copying a whole block of size [(NumberOfRows+4) x 36] in order to 
+	// transfer all elements accessed during the iteration and thus gain in speed of execution
 
-			 /*Update state for current point*/
-			if (influence > FloatError)			// apply threshold for floating point error
-				*(GNext_d + y * n + x) = 1;
-			else if (influence < -FloatError)	// apply threshold for floating point error
-				*(GNext_d + y * n + x) = -1;
-			else								// stay the same
-				*(GNext_d + y * n + x) = *(G_d + y * n + x);
 
-			y += NumberOfRows; // Update y coordinate as we move down the tile
-		}// for every j < TileSize && y within G matrix's bounds
-	}
+	for (int j = 0; j < TileSize; j += NumberOfRows) { // for every block chunk of tile in the y axis
+		int counterY = 0; // variable to help with accessing rows of G_d table for copying
+
+		// Copying moments for iteration j into shared memory
+		for (int helperY = threadIdx.y; helperY < RowsHelping; helperY += NumberOfRows) { // for every row of the subtile to be loaded 		
+			int counterX = 0; // variable to help with accessing columns of G_d table for copying
+			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {
+				g_s[helperY][helperX] = G_d[((y - 2 + counterY * NumberOfRows + n) % n)*n + (x - 2 + counterX * TileSize + n) % n]; // Dereference G_d and copy to shared memory
+				++counterX; // increase helper counter for columns
+			}
+			++counterY; // increase helper counter for rows
+		}
+		__syncthreads(); // waiting for all threads to be done
+
+		// Evaluating moments in subblock through g_s and w_s matrices
+		if (x < n) {  // Check whether thread x coordinate is out of bounds
+			if (y < n) { // Check whether thread y coordinate is out of bounds
+				double influence = 0.0; // weighted influence of neighbors
+				for (int i = -2; i <= 2; i++) {	// for every row of weight matrix
+					int r = threadIdx.y + 2 + i;	// add 2 to y coordinate as is in block manner to "center" block in g_s dereferencing
+					for (int t = -2; t <= 2; t++) {	// for every weight of a row in weight matrix
+						int c = threadIdx.x + 2 + t;	// add 2 to x coordinate as is in block manner to "center" block in g_s dereferencing
+						influence += g_s[r * ColumnsHelping][c] * w_d[(i + 2) * WeightMatDim + (t + 2)];	// +2 cause of the i and t offset
+					}// for t < WeightMatDim
+				}// for i < WeightMatDim
+
+				/*Update state for current point*/
+				if (influence > FloatError)			// apply threshold for floating point error
+					*(GNext_d + y * n + x) = 1;
+				else if (influence < -FloatError)	// apply threshold for floating point error
+					*(GNext_d + y * n + x) = -1;
+				else								// stay the same
+					*(GNext_d + y * n + x) = *(G_d + y * n + x);
+
+				y += NumberOfRows; // Update y coordinate as we move down the tile
+
+			} // if (y < n)
+		} // if (x < n)
+	} // for (j < TileSize)
 }
 
 void ising(int* G, double* w, int k, int n)
@@ -244,7 +277,7 @@ void ising(int* G, double* w, int k, int n)
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration
-		calculateFrame <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
+		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
 		same_matrix <<< 1, 1 >>> ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
 
 		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
@@ -262,7 +295,7 @@ void ising(int* G, double* w, int k, int n)
 		}
 	}  // for every i < k
 
-	// copy data from device and cleanup
+	// Copy data from device and cleanup
 	cudaMemcpy(G, G_d, n * n * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaFree(G_d);
 }
