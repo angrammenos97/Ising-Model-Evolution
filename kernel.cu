@@ -224,7 +224,10 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 		for (int helperY = threadIdx.y; helperY < RowsHelping; helperY += NumberOfRows) { // for every row of the subtile to be loaded 		
 			int counterX = 0; // variable to help with accessing columns of G_d table for copying
 			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {
-				g_s[helperY][helperX] = G_d[((y - 2 + counterY * NumberOfRows + n) % n)*n + (x - 2 + counterX * TileSize + n) % n]; // Dereference G_d and copy to shared memory
+				int rowNumber = (y - 2 + counterY * NumberOfRows + n) % n; // Current Row of G_d to be dereferenced
+				int columnNumber = (x - 2 + counterX * TileSize + n) % n; // Current Column of G_d to be dereferenced
+				
+				g_s[helperY][helperX] = G_d[rowNumber*n + columnNumber]; // Dereference G_d and copy to shared memory
 				++counterX; // increase helper counter for columns
 			}
 			++counterY; // increase helper counter for rows
