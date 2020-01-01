@@ -239,7 +239,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 					int r = threadIdx.y + 2 + i;	// add 2 to y coordinate as is in block manner to "center" block in g_s dereferencing
 					for (int t = -2; t <= 2; t++) {	// for every weight of a row in weight matrix
 						int c = threadIdx.x + 2 + t;	// add 2 to x coordinate as is in block manner to "center" block in g_s dereferencing
-						influence += g_s[r * ColumnsHelping][c] * w_d[(i + 2) * WeightMatDim + (t + 2)];	// +2 cause of the i and t offset
+						influence += g_s[r * ColumnsHelping][c] * w_s[(i + 2) * WeightMatDim + (t + 2)];	// +2 cause of the i and t offset
 					}// for t < WeightMatDim
 				}// for i < WeightMatDim
 
