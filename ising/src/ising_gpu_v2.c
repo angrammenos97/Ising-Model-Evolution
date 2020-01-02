@@ -67,7 +67,7 @@ void ising(int* G, double* w, int k, int n)
 
 	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
 	dim3 dimBlock(TileSize, NumberOfRows);
-	dim3 dimGrid((n + dimBlock.x - 1) / dimBlock.x, (n + dimBlock.y - 1) / dimBlock.y);
+	dim3 dimGrid((n + TileSize - 1) / TileSize, (n + TileSize - 1) / TileSize);
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration

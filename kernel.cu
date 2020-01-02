@@ -222,7 +222,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 		for (int helperY = threadIdx.y; helperY < RowsHelping; helperY += NumberOfRows) { // for every row of the subtile to be loaded 		
 			int counterX = 0; // variable to help with accessing columns of G_d table for copying
 			int rowNumber = (y - 2 + counterY * NumberOfRows + n) % n; // Current Row of G_d to be dereferenced
-			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {				
+			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {
 				int columnNumber = (x - 2 + counterX * TileSize + n) % n; // Current Column of G_d to be dereferenced				
 				g_s[helperY][helperX] = G_d[rowNumber*n + columnNumber]; // Dereference G_d and copy to shared memory
 				++counterX; // increase helper counter for columns
@@ -276,8 +276,8 @@ void ising(int* G, double* w, int k, int n)
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration
-		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
-		same_matrix <<< 1, 1 >>> ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+		calculateFrameShared << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n);
+		same_matrix << < 1, 1 >> > ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
 
 		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 
