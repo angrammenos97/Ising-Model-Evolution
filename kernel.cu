@@ -213,20 +213,17 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 
 	// Do as many time needed to cover the whole area assigned to the block
 	// Copy block elements for current iteration from global memory to shared in a warp
-	// oriented manner copying a whole block of size [(NumberOfRows+4) x 36] in order to 
+	// oriented manner copying a whole block of size [(NumberOfRows+4) x (TileSize+4)] in order to 
 	// transfer all elements accessed during the iteration and thus gain in speed of execution
-
 
 	for (int j = 0; j < TileSize; j += NumberOfRows) { // for every block chunk of tile in the y axis
 		int counterY = 0; // variable to help with accessing rows of G_d table for copying
-
 		// Copying moments for iteration j into shared memory
 		for (int helperY = threadIdx.y; helperY < RowsHelping; helperY += NumberOfRows) { // for every row of the subtile to be loaded 		
 			int counterX = 0; // variable to help with accessing columns of G_d table for copying
-			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {
-				int rowNumber = (y - 2 + counterY * NumberOfRows + n) % n; // Current Row of G_d to be dereferenced
-				int columnNumber = (x - 2 + counterX * TileSize + n) % n; // Current Column of G_d to be dereferenced
-				
+			int rowNumber = (y - 2 + counterY * NumberOfRows + n) % n; // Current Row of G_d to be dereferenced
+			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {				
+				int columnNumber = (x - 2 + counterX * TileSize + n) % n; // Current Column of G_d to be dereferenced				
 				g_s[helperY][helperX] = G_d[rowNumber*n + columnNumber]; // Dereference G_d and copy to shared memory
 				++counterX; // increase helper counter for columns
 			}
@@ -242,7 +239,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 					int r = threadIdx.y + 2 + i;	// add 2 to y coordinate as is in block manner to "center" block in g_s dereferencing
 					for (int t = -2; t <= 2; t++) {	// for every weight of a row in weight matrix
 						int c = threadIdx.x + 2 + t;	// add 2 to x coordinate as is in block manner to "center" block in g_s dereferencing
-						influence += g_s[r * ColumnsHelping][c] * w_s[(i + 2) * WeightMatDim + (t + 2)];	// +2 cause of the i and t offset
+						influence += g_s[r][c] * w_s[(i + 2) * WeightMatDim + (t + 2)];	// +2 cause of the i and t offset
 					}// for t < WeightMatDim
 				}// for i < WeightMatDim
 
@@ -255,7 +252,6 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 					*(GNext_d + y * n + x) = *(G_d + y * n + x);
 
 				y += NumberOfRows; // Update y coordinate as we move down the tile
-
 			} // if (y < n)
 		} // if (x < n)
 	} // for (j < TileSize)
