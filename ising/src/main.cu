@@ -6,8 +6,7 @@
 
 #define DefNumPD 517	// Default Number of Points per Dimension
 #define DefNumI 10		// Default Number of Iterations
-#define DefExp 0		// Default Value to Export Data (0 = False)
-#define DefLastF 0		// Default Export Only Last Frame (0 = False)
+#define DefExp 0		// Default Value to Export Data (0 = None, 1 = All, 2 = Last)
 
 enum Data_Types { CHAR_TYPE, INT_TYPE, FLOAT_TYPE, DOUBLE_TYPE };
 
@@ -15,7 +14,6 @@ char *input_file = NULL;
 int npd = DefNumPD;	// Number of Points per Dimension
 int nk = DefNumI;	// Number of Iterations
 int expi = DefExp;	// Export Data
-int last_frame = DefLastF;
 
 struct timeval startwtime, endwtime;
 
@@ -29,7 +27,7 @@ void printMatrix(void *m, int r, int c, int elem_type, char *name);
 int main(int argc, char* argv[])
 {
 	help(argc, argv);
-	printf("Running with values n=%i, k=%i, o=%i, l=%i\n", npd, nk, expi, last_frame);
+	printf("Running with values n=%i, k=%i, o=%i\n", npd, nk, expi);
 
 	srand((unsigned int)time(NULL));
 	double p_time;
@@ -66,13 +64,13 @@ int main(int argc, char* argv[])
 	// Run Ising model evolution
 	printf("Running Ising Model Evolution. ");
 	gettimeofday(&startwtime, NULL);
-	if (!expi && !last_frame) {
+	if (!expi) {
 		ising(G, &weight_matrix[0][0], nk, npd);
 		gettimeofday(&endwtime, NULL);
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 	}
-	else if (expi) {	// export data
+	else if (expi == 1) {	// export data
 		printf("Saving data of each iteration. ");
 		int *G_out = (int*)malloc(npd * npd * (nk + 1) * sizeof(int));
 		memcpy(G_out, G, npd*npd * sizeof(int));	// copy data to export them later		
@@ -112,9 +110,6 @@ void help(int argc, char *argv[])
 					nk = atoi(argv[i + 1]);
 				else if (*(argv[i] + 1) == 'o')
 					expi = atoi(argv[i + 1]);
-				else if (*(argv[i] + 1) == 'l') {
-					last_frame = atoi(argv[i + 1]);
-				}
 			}
 			else {
 				help(1, argv);
@@ -127,8 +122,7 @@ void help(int argc, char *argv[])
 	printf("-f [File]\t:Input file of points\n");
 	printf("-n [Number]\t:Number of points per dimension (default:%i)\n", DefNumPD);
 	printf("-k [Iterations]\t:Number of iterations (default: %i)\n", DefNumI);
-	printf("-o [0|1]\t:Export each iteration to output*.bin (default: %i)\n", DefExp);
-	printf("-l [0|1]\t:Export last iteration to output*.bin (default: %i)\n", DefLastF);
+	printf("-o [0|1|2]\t:Export each iteration to output*.bin (0 = None(default), 1 = All, 2 = Last)\n");
 
 }
 
@@ -136,7 +130,7 @@ void export_data(int *G, int totalSize)
 {
 	int tmp_k = nk + 1;
 	char *out_file_name = (char*)calloc(100, sizeof(char));
-	if (last_frame)
+	if (expi == 2)
 		sprintf(out_file_name, "output-%i-%i-1.bin", npd, tmp_k);
 	else
 		sprintf(out_file_name, "output-%i-%i.bin", npd, tmp_k);
