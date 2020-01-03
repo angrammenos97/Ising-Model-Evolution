@@ -71,8 +71,8 @@ void ising(int* G, double* w, int k, int n)
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration
-		calculateFrame << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n);
-		same_matrix << < 1, 1 >> > ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+		calculateFrame <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
+		same_matrix <<< 1, 1 >>> ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
 
 		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 
