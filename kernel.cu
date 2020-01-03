@@ -251,9 +251,11 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 				else								// stay the same
 					*(GNext_d + y * n + x) = *(G_d + y * n + x);
 
-				y += NumberOfRows; // Update y coordinate as we move down the tile
 			} // if (y < n)
 		} // if (x < n)
+		
+		y += NumberOfRows; // Update y coordinate as we move down the tile
+		__syncthreads(); // Synchronize threads for next iterartion
 	} // for (j < TileSize)
 }
 
