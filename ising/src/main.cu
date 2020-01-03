@@ -136,7 +136,10 @@ void export_data(int *G, int totalSize)
 {
 	int tmp_k = nk + 1;
 	char *out_file_name = (char*)calloc(100, sizeof(char));
-	sprintf(out_file_name, "output-%i-%i.bin", npd, tmp_k);
+	if (last_frame)
+		sprintf(out_file_name, "output-%i-%i-1.bin", npd, tmp_k);
+	else
+		sprintf(out_file_name, "output-%i-%i.bin", npd, tmp_k);
 	printf("Exporting data to %s. ", out_file_name);
 	FILE *f = fopen(out_file_name, "wb");
 	fwrite(G, sizeof(int), totalSize, f);
@@ -150,23 +153,4 @@ void import_data(int *G)
 	FILE *f = fopen(input_file, "rb");
 	fread(G, sizeof(int), npd*npd, f);
 	fclose(f);
-}
-
-void printMatrix(void *m, int r, int c, int elem_type, char *name)
-{
-	printf("Matrix %s:\n", name);
-	for (int i = 0; i < r; i++) {
-		printf("{ ");
-		for (int j = 0; j < c; j++) {
-			if (elem_type == CHAR_TYPE)
-				printf("%c, ", *((char*)m + i * c + j));
-			else if (elem_type == INT_TYPE)
-				printf("%i, ", *((int*)m + i * c + j));
-			else if (elem_type == FLOAT_TYPE)
-				printf("%f, ", *((float*)m + i * c + j));
-			else if (elem_type == DOUBLE_TYPE)
-				printf("%lf, ", *((double*)m + i * c + j));
-		}
-		printf("}\n");
-	}
 }
