@@ -21,8 +21,6 @@ void ising(int* G, double* w, int k, int n);
 void help(int argc, char *argv[]);
 void export_data(int *G, int elemNum);
 void import_data(int *G);
-void printMatrix(void *m, int r, int c, int elem_type, char *name);
-
 
 int main(int argc, char* argv[])
 {
