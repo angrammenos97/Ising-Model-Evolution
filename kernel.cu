@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 	if (input_file == NULL) {
 		printf("Generating random data set. ");
 		gettimeofday(&startwtime, NULL);
-		
+
 		for (int i = 0; i < npd * npd; i++) {
 			if (rand() < (RAND_MAX) / 2)
 				*(G + i) = -1;
@@ -57,11 +57,11 @@ int main(int argc, char* argv[])
 		printf("DONE in %fsec!\n", p_time);
 	}
 
-	double weight_matrix[5][5] = {	{0.004, 0.016, 0.026, 0.016, 0.004},
+	double weight_matrix[5][5] = { {0.004, 0.016, 0.026, 0.016, 0.004},
 									{0.016, 0.071, 0.117, 0.071, 0.016},
 									{0.026, 0.117, 0.000, 0.117, 0.026},
 									{0.016, 0.071, 0.117, 0.071, 0.016},
-									{0.004, 0.016, 0.026, 0.016, 0.004}	};
+									{0.004, 0.016, 0.026, 0.016, 0.004} };
 
 	// Run Ising model evolution
 	printf("Running Ising Model Evolution. ");
@@ -75,13 +75,13 @@ int main(int argc, char* argv[])
 	else if (expi) {	// export data
 		printf("Saving data of each iteration. ");
 		int *G_out = (int*)malloc(npd * npd * (nk + 1) * sizeof(int));
-		memcpy(G_out, G, npd*npd*sizeof(int));	// copy data to export them later		
-		for (int i = 1; i < (nk+1); i++) {	// save data of each iteration to export them for animation
+		memcpy(G_out, G, npd*npd * sizeof(int));	// copy data to export them later		
+		for (int i = 1; i < (nk + 1); i++) {	// save data of each iteration to export them for animation
 			ising(G, &weight_matrix[0][0], 1, npd);
-			memcpy((G_out + i*npd*npd), G, npd*npd*sizeof(int));	// copy data to export them later			
+			memcpy((G_out + i * npd*npd), G, npd*npd * sizeof(int));	// copy data to export them later			
 		}
 		//  Export data to output.bin
-		export_data(G_out, npd*npd*(nk+1));
+		export_data(G_out, npd*npd*(nk + 1));
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 		free(G_out);
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 	}
-	
+
 	printf("Exiting\n");
 	free(G);
 	return 0;
@@ -179,7 +179,7 @@ void printMatrix(void *m, int r, int c, int elem_type, char *name)
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6	// Float error
 #define TileSize 32		// Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
-#define NumberOfRows 8	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
+#define NumberOfRows 16	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
 #define RowsHelping (NumberOfRows + 4)	// Rows of global memory to be loaded into shared (for the exercise NumberOfRows + 4)
 #define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
@@ -249,11 +249,11 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 				else if (influence < -FloatError)	// apply threshold for floating point error
 					*(GNext_d + y * n + x) = -1;
 				else								// stay the same
-					*(GNext_d + y * n + x) = *(G_d + y * n + x);
+					*(GNext_d + y * n + x) = g_s[threadIdx.y + 2][threadIdx.x + 2];
 
 			} // if (y < n)
 		} // if (x < n)
-		
+
 		y += NumberOfRows; // Update y coordinate as we move down the tile
 		__syncthreads(); // Synchronize threads for next iterartion
 	} // for (j < TileSize)
@@ -278,8 +278,8 @@ void ising(int* G, double* w, int k, int n)
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration
-		calculateFrameShared << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n);
-		same_matrix << < 1, 1 >> > ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
+		same_matrix <<< 1, 1 >>> ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
 
 		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 

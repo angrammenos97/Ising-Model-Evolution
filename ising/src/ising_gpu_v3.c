@@ -6,7 +6,7 @@
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6	// Float error
 #define TileSize 32		// Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
-#define NumberOfRows 8	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
+#define NumberOfRows 16	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
 #define RowsHelping (NumberOfRows + 4)	// Rows of global memory to be loaded into shared (for the exercise NumberOfRows + 4)
 #define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
@@ -78,9 +78,11 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 				else								// stay the same
 					*(GNext_d + y * n + x) = *(G_d + y * n + x);
 
-				y += NumberOfRows; // Update y coordinate as we move down the tile
 			} // if (y < n)
 		} // if (x < n)
+
+		y += NumberOfRows; // Update y coordinate as we move down the tile
+		__syncthreads(); // Synchronize threads for next iterartion
 	} // for (j < TileSize)
 }
 
@@ -99,12 +101,12 @@ void ising(int* G, double* w, int k, int n)
 
 	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
 	dim3 dimBlock(TileSize, NumberOfRows);
-	dim3 dimGrid((n + dimBlock.x - 1) / dimBlock.x, (n + dimBlock.y - 1) / dimBlock.y);
+	dim3 dimGrid((n + TileSize - 1) / TileSize, (n + TileSize - 1) / TileSize);
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration
-		calculateFrameShared << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n);
-		same_matrix << < 1, 1 >> > ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
+		same_matrix <<< 1, 1 >>> ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
 
 		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 
