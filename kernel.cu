@@ -180,7 +180,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 	// Copy w_d matrix from global to shared memory with optimal access of the former
 	// as far as warps are concerned - indexing used is based only on block dims
 
-	if (threadIdx.x < 24) // Use only 25 initial threads of the first warp
+	if ((threadIdx.x < 25) && (threadIdx.y == 0)) // Use only 25 initial threads of the first warp
 		w_s[threadIdx.x] = w_d[threadIdx.x];
 
 	/* Initialize thread coordinates to be used for global memory access*/
