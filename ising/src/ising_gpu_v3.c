@@ -10,20 +10,8 @@
 #define RowsHelping (NumberOfRows + 4)	// Rows of global memory to be loaded into shared (for the exercise NumberOfRows + 4)
 #define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
-__device__ int state_d; // device parameter to hold if iterations should proceed
-int state;				// corresponding host parameter
 
-__global__ void same_matrix(void* A, void* B, int elemSize, int numElem)
-{
-	state_d = 1;
-	for (int i = 0; i < elemSize * numElem; i++)
-		if (*((char*)A + i) != *((char*)B + i)) {
-			state_d = 0;
-			break;
-		}
-}
-
-__global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
+__global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n, int *same_matrix_d)
 {
 	__shared__ double w_s[25]; // Shared matrix to hold weight table and accelerate access
 	__shared__ int g_s[RowsHelping][ColumnsHelping]; // Shared matrix to hold moments needed for the current iteration
@@ -78,6 +66,9 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 				else								// stay the same
 					*(GNext_d + y * n + x) = g_s[threadIdx.y + 2][threadIdx.x + 2];
 
+				// Did the magnetic moment changed?
+				if (*(GNext_d + y * n + x) != g_s[threadIdx.y + 2][threadIdx.x + 2])
+					*same_matrix_d = 0;
 			} // if (y < n)
 		} // if (x < n)
 
@@ -90,10 +81,13 @@ void ising(int* G, double* w, int k, int n)
 {
 	/*Declare and initialize memory to use on device*/
 	int* G_d, *GNext_d; double* w_d; // Pointers to use for matrix store on device
+	int *same_matrix_d;	// device parameter to hold if iterations should proceed
+	int same_matrix = 1;	// corresponding host parameter
 
 	cudaMalloc((void**)&G_d, n * n * sizeof(int));
 	cudaMalloc((void**)&GNext_d, n * n * sizeof(int));
 	cudaMalloc((void**)&w_d, WeightMatDim * WeightMatDim * sizeof(double));
+	cudaMalloc((void**)&same_matrix_d, sizeof(int));
 
 	cudaMemcpy(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
@@ -105,10 +99,11 @@ void ising(int* G, double* w, int k, int n)
 
 	/*--------------------------------------------------------------------------------*/
 	for (int i = 0; i < k; ++i) { // For every iteration
-		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n);
-		same_matrix <<< 1, 1 >>> ((void*)G_d, (void*)GNext_d, sizeof(int), n * n);
+		same_matrix = 1;
+		cudaMemcpy(same_matrix_d, &same_matrix, sizeof(int), cudaMemcpyHostToDevice);
+		calculateFrameShared << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n, same_matrix_d);
 
-		cudaMemcpy(&state, &state_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
+		cudaMemcpy(&same_matrix, same_matrix_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 
 		// Swap pointers
 		int* ptri = G_d;
@@ -116,14 +111,15 @@ void ising(int* G, double* w, int k, int n)
 		GNext_d = ptri;
 
 		// Exit if nothing changed
-		if (state) {
+		if (same_matrix) {
+			printf("Finished at %ith iteration. ", i);
 			cudaFree(GNext_d);
 			cudaFree(w_d);
 			break;
 		}
 	}  // for every i < k
 
-	// Copy data from device and cleanup
+	// copy data from device and cleanup
 	cudaMemcpy(G, G_d, n * n * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaFree(G_d);
 }
