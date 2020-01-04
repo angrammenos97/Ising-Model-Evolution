@@ -10,7 +10,7 @@
 
 enum Data_Types { CHAR_TYPE, INT_TYPE, FLOAT_TYPE, DOUBLE_TYPE };
 
-char *input_file = NULL;
+char* input_file = NULL;
 int npd = DefNumPD;	// Number of Points per Dimension
 int nk = DefNumI;	// Number of Iterations
 int expi = DefExp;	// Export Data
@@ -18,9 +18,9 @@ int expi = DefExp;	// Export Data
 struct timeval startwtime, endwtime;
 
 void ising(int* G, double* w, int k, int n);
-void help(int argc, char *argv[]);
-void export_data(int *G, int elemNum);
-void import_data(int *G);
+void help(int argc, char* argv[]);
+void export_data(int* G, int elemNum);
+void import_data(int* G);
 
 int main(int argc, char* argv[])
 {
@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
 	double p_time;
 
 	// Generate random/Import point set
-	int *G = (int *)malloc(npd * npd * sizeof(int));
+	int* G = (int*)malloc(npd * npd * sizeof(int));
 	if (input_file == NULL) {
 		printf("Generating random data set. ");
 		gettimeofday(&startwtime, NULL);
@@ -70,14 +70,14 @@ int main(int argc, char* argv[])
 	}
 	else if (expi == 1) {	// export data
 		printf("Saving data of each iteration. ");
-		int *G_out = (int*)malloc(npd * npd * (nk + 1) * sizeof(int));
-		memcpy(G_out, G, npd*npd * sizeof(int));	// copy data to export them later		
+		int* G_out = (int*)malloc(npd * npd * (nk + 1) * sizeof(int));
+		memcpy(G_out, G, npd * npd * sizeof(int));	// copy data to export them later		
 		for (int i = 1; i < (nk + 1); i++) {	// save data of each iteration to export them for animation
 			ising(G, &weight_matrix[0][0], 1, npd);
-			memcpy((G_out + i * npd*npd), G, npd*npd * sizeof(int));	// copy data to export them later			
+			memcpy((G_out + i * npd * npd), G, npd * npd * sizeof(int));	// copy data to export them later			
 		}
 		//  Export data to output.bin
-		export_data(G_out, npd*npd*(nk + 1));
+		export_data(G_out, npd * npd * (nk + 1));
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 		free(G_out);
@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 	else {
 		ising(G, &weight_matrix[0][0], nk, npd);
 		printf("Saving last iteration. ");
-		export_data(G, npd*npd);
+		export_data(G, npd * npd);
 		p_time = (double)((endwtime.tv_usec - startwtime.tv_usec) / 1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 		printf("DONE in %fsec!\n", p_time);
 	}
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-void help(int argc, char *argv[])
+void help(int argc, char* argv[])
 {
 	if (argc > 1) {
 		for (int i = 1; i < argc; i += 2) {
@@ -124,26 +124,26 @@ void help(int argc, char *argv[])
 
 }
 
-void export_data(int *G, int totalSize)
+void export_data(int* G, int totalSize)
 {
 	int tmp_k = nk + 1;
-	char *out_file_name = (char*)calloc(100, sizeof(char));
+	char* out_file_name = (char*)calloc(100, sizeof(char));
 	if (expi == 2)
 		sprintf(out_file_name, "output-%i-%i-1.bin", npd, tmp_k);
 	else
 		sprintf(out_file_name, "output-%i-%i.bin", npd, tmp_k);
 	printf("Exporting data to %s. ", out_file_name);
-	FILE *f = fopen(out_file_name, "wb");
+	FILE* f = fopen(out_file_name, "wb");
 	fwrite(G, sizeof(int), totalSize, f);
 	fclose(f);
 	free(out_file_name);
 }
 
-void import_data(int *G)
+void import_data(int* G)
 {
 	printf("Importing data from %s. ", input_file);
-	FILE *f = fopen(input_file, "rb");
-	fread(G, sizeof(int), npd*npd, f);
+	FILE* f = fopen(input_file, "rb");
+	fread(G, sizeof(int), npd * npd, f);
 	fclose(f);
 }
 
@@ -160,7 +160,7 @@ void import_data(int *G)
 #define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
 
-__global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n, int *same_matrix_d)
+__global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n, int* same_matrix_d)
 {
 	__shared__ double w_s[25]; // Shared matrix to hold weight table and accelerate access
 	__shared__ int g_s[RowsHelping][ColumnsHelping]; // Shared matrix to hold moments needed for the current iteration
@@ -188,7 +188,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n,
 			int rowNumber = (y - 2 + counterY * NumberOfRows + n) % n; // Current Row of G_d to be dereferenced
 			for (int helperX = threadIdx.x; helperX < ColumnsHelping; helperX += TileSize) {
 				int columnNumber = (x - 2 + counterX * TileSize + n) % n; // Current Column of G_d to be dereferenced				
-				g_s[helperY][helperX] = G_d[rowNumber*n + columnNumber]; // Dereference G_d and copy to shared memory
+				g_s[helperY][helperX] = G_d[rowNumber * n + columnNumber]; // Dereference G_d and copy to shared memory
 				++counterX; // increase helper counter for columns
 			}
 			++counterY; // increase helper counter for rows
@@ -229,8 +229,8 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n,
 void ising(int* G, double* w, int k, int n)
 {
 	/*Declare and initialize memory to use on device*/
-	int* G_d, *GNext_d; double* w_d; // Pointers to use for matrix store on device
-	int *same_matrix_d;	// device parameter to hold if iterations should proceed
+	int* G_d, * GNext_d; double* w_d; // Pointers to use for matrix store on device
+	int* same_matrix_d;	// device parameter to hold if iterations should proceed
 	int same_matrix = 1;	// corresponding host parameter
 
 	cudaMalloc((void**)&G_d, n * n * sizeof(int));
@@ -238,9 +238,20 @@ void ising(int* G, double* w, int k, int n)
 	cudaMalloc((void**)&w_d, WeightMatDim * WeightMatDim * sizeof(double));
 	cudaMalloc((void**)&same_matrix_d, sizeof(int));
 
-	cudaMemcpy(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
+	/*Create streams to overlap data transfers and gain in speed*/
+	cudaStream_t stream1;
+	cudaStream_t stream2;
+	cudaStreamCreate(&stream1);
+	cudaStreamCreate(&stream2);
+	
+	
+	cudaMemcpyAsync(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice,stream1);            // Copy data
+	cudaMemcpyAsync(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice,stream2);
 	cudaMemcpy(w_d, w, WeightMatDim * WeightMatDim * sizeof(double), cudaMemcpyHostToDevice);
+
+	cudaStreamDestroy(stream1); // Destroy streams
+	cudaStreamDestroy(stream2);
+
 
 	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
 	dim3 dimBlock(TileSize, NumberOfRows);
@@ -250,7 +261,7 @@ void ising(int* G, double* w, int k, int n)
 	for (int i = 0; i < k; ++i) { // For every iteration
 		same_matrix = 1;
 		cudaMemcpy(same_matrix_d, &same_matrix, sizeof(int), cudaMemcpyHostToDevice);
-		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n, same_matrix_d);
+		calculateFrameShared << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n, same_matrix_d);
 
 		cudaMemcpy(&same_matrix, same_matrix_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 
