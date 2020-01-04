@@ -6,7 +6,7 @@
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6	// Float error
 #define TileSize 32		// Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
-#define NumberOfRows 16	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
+#define NumberOfRows 8	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
 #define RowsHelping (NumberOfRows + 4)	// Rows of global memory to be loaded into shared (for the exercise NumberOfRows + 4)
 #define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
@@ -31,7 +31,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 	// Copy w_d matrix from global to shared memory with optimal access of the former
 	// as far as warps are concerned - indexing used is based only on block dims
 
-	if (threadIdx.x < 24) // Use only 25 initial threads of the first warp
+	if ((threadIdx.x < 25) && (threadIdx.y == 0)) // Use only 25 initial threads of the first warp
 		w_s[threadIdx.x] = w_d[threadIdx.x];
 
 	/* Initialize thread coordinates to be used for global memory access*/
@@ -76,7 +76,7 @@ __global__ void calculateFrameShared(int* G_d, int* GNext_d, double* w_d, int n)
 				else if (influence < -FloatError)	// apply threshold for floating point error
 					*(GNext_d + y * n + x) = -1;
 				else								// stay the same
-					*(GNext_d + y * n + x) = *(G_d + y * n + x);
+					*(GNext_d + y * n + x) = g_s[threadIdx.y + 2][threadIdx.x + 2];
 
 			} // if (y < n)
 		} // if (x < n)

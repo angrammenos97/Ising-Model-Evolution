@@ -155,7 +155,7 @@ void import_data(int *G)
 #define WeightMatDim 5	// Weight Matrix Dimension
 #define FloatError 1e-6	// Float error
 #define TileSize 32		// Size of tiles partitioning the matrix - each tile calculates TileSize x TileSize moments
-#define NumberOfRows 16	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
+#define NumberOfRows 8	// Rows of each block of threads - each block is of size NumberOfRows x TileSi
 #define RowsHelping (NumberOfRows + 4)	// Rows of global memory to be loaded into shared (for the exercise NumberOfRows + 4)
 #define ColumnsHelping (TileSize + 4)	// Columns of global memory to be loaded into shared (for the exercise TileSize + 4)
 
