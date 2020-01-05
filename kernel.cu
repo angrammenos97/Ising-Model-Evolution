@@ -244,14 +244,14 @@ void ising(int* G, double* w, int k, int n)
 	cudaStreamCreate(&stream1);
 	cudaStreamCreate(&stream2);
 	
-	
-	cudaMemcpyAsync(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice,stream1);            // Copy data
+	// Copy data
+	cudaMemcpyAsync(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice,stream1);     
 	cudaMemcpyAsync(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice,stream2);
 	cudaMemcpy(w_d, w, WeightMatDim * WeightMatDim * sizeof(double), cudaMemcpyHostToDevice);
 
-	cudaStreamDestroy(stream1); // Destroy streams
+	// Destroy streams
+	cudaStreamDestroy(stream1); 
 	cudaStreamDestroy(stream2);
-
 
 	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
 	dim3 dimBlock(TileSize, NumberOfRows);
@@ -261,7 +261,7 @@ void ising(int* G, double* w, int k, int n)
 	for (int i = 0; i < k; ++i) { // For every iteration
 		same_matrix = 1;
 		cudaMemcpy(same_matrix_d, &same_matrix, sizeof(int), cudaMemcpyHostToDevice);
-		calculateFrameShared << < dimGrid, dimBlock >> > (G_d, GNext_d, w_d, n, same_matrix_d);
+		calculateFrameShared <<< dimGrid, dimBlock >>> (G_d, GNext_d, w_d, n, same_matrix_d);
 
 		cudaMemcpy(&same_matrix, same_matrix_d, sizeof(int), cudaMemcpyDeviceToHost); // Kernel to get flag indicating whether matrices are the same
 

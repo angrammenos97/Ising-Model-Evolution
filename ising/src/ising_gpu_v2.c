@@ -56,9 +56,20 @@ void ising(int* G, double* w, int k, int n)
 	cudaMalloc((void**)&w_d, WeightMatDim * WeightMatDim * sizeof(double));
 	cudaMalloc((void**)&same_matrix_d, sizeof(int));
 
-	cudaMemcpy(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice);
+	/*Create streams to overlap data transfers and gain in speed*/
+		cudaStream_t stream1;
+	cudaStream_t stream2;
+	cudaStreamCreate(&stream1);
+	cudaStreamCreate(&stream2);
+
+	// Copy data
+	cudaMemcpyAsync(G_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice, stream1);
+	cudaMemcpyAsync(GNext_d, G, n * n * sizeof(int), cudaMemcpyHostToDevice, stream2);
 	cudaMemcpy(w_d, w, WeightMatDim * WeightMatDim * sizeof(double), cudaMemcpyHostToDevice);
+
+	// Destroy streams
+	cudaStreamDestroy(stream1);
+	cudaStreamDestroy(stream2);
 
 	/*Declare grid and block sizes and compensate for matrix not divided with block size*/
 	dim3 dimBlock(TileSize, NumberOfRows);
