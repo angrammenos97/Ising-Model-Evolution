@@ -7,7 +7,7 @@ CC = g++
 all: Ising_Animation
 
 Ising_Animation: animation.cpp
-	g++ -I /usr/include/opencv2/ -L /usr/lib/ -o $@ $< -lopencv_core -lopencv_highgui
+	g++ -I /usr/include/opencv2/ -L /usr/lib/ -o $@ $< -lopencv_core -lopencv_highgui -lopencv_imgcodecs
 
 clean:
-	$(RM) Ising_Animation output*.bin *~
+	$(RM) Ising_Animation output*.bin *.jpg *~
